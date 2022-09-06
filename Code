@@ -1,0 +1,74 @@
+import pandas as pd
+import spacy
+from spacy import displacy
+filename='---' #name of file containing transcript
+
+#Function read the text file into a dataframe named "df"
+#Two Column are made named "Speaker" , " Dialogue"
+def txt_to_df (filename):
+   df=pd.read_csv(filename,sep=':',names=["Speaker","Dialogue"])
+   return df
+
+# this function extract all the name and entity from the "Dialogue" Column of the dataframe and store them in a list called 'ner'
+def extract_ner(df):
+  NER = spacy.load("en_core_web_sm",disable=["tok2vec", "tagger", "parser", "attribute_ruler", "lemmatizer"])
+  ner=[]
+  for i in range(0,len(df)):
+    text=NER(df["Dialogue"][i])
+    ner.append(list(text.ents))
+  return ner
+
+# Extract the only Speaker names and store them in list called Speaker_names 
+def extract_speaker(names):
+  for d in names:
+    for word in d[:]:
+      if(word.label_!="PERSON"):
+          d.remove(word)
+  return names
+
+# a Entity Column was added in dataframe which hold the speaker name of desired utterances
+def add_name_dataframe (df,names):
+  entity=[]
+  for n in names:
+    entity.append(n)
+  df["Entity"]=entity
+  return df
+
+# a function is to check the list contain item or not
+def find_item(list, item):
+  for i in range(0,len(list)):
+      if (list[i]==item):
+        return True
+  
+  return False
+
+# Replace function will replace the speaker name with their correct name in dataframe
+def replace(df,Occur):
+  for i in range(0,len(df)):
+    if len(df["Entity"][i])>1:
+      for j in range(0,len(df["Entity"][i])):
+         if(find_item(Occur,str(df["Entity"][i][j])))!=True:
+          if (find_item(Occur,str(df["Speaker"][i]))!= True):
+              df["Speaker"]=df["Speaker"].replace([df['Speaker'][i]],[str(df["Entity"][i][j])])
+              Occur.append(str(df["Entity"][i][j]))
+    elif (len(df["Entity"][i])==1 and (not(find_item (Occur,str(df["Entity"][i][0]))))):
+      if (find_item(Occur,str(df["Speaker"][i]))!= True):
+        Occur.append(str(df["Entity"][i][0]))
+        df["Speaker"]=df["Speaker"].replace([df['Speaker'][i]],[str(df["Entity"][i][0])])
+  df.drop('Entity', inplace=True, axis=1)
+  return df
+
+# function update the transcript file with speaker name
+def df_to_txt(df,filename):
+  with open(filename,'w') as file:
+    pass
+  df.to_csv(r'transcript.txt', header=None, index=None, sep=':', mode='a')
+
+Occur=[] # it hold the speaker name which is already assigned 
+df=txt_to_df(filename)
+ner=extract_ner(df)
+Speaker_names=extract_speaker(ner)
+df=add_name_dataframe (df,Speaker_names)
+df=replace(df,Occur)
+df_to_txt(df,filename)
+
